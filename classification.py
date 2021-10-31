@@ -6,7 +6,7 @@ from scipy.stats import mannwhitneyu
 from scipy.stats import ttest_ind
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import RandomizedSearchCV
-from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score, roc_auc_score
+from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score, roc_auc_score, roc_curve, auc
 from sklearn.metrics import RocCurveDisplay
 from sklearn.metrics import ConfusionMatrixDisplay
 from sklearn.linear_model import LogisticRegressionCV
@@ -27,8 +27,8 @@ def stats_data(data, cols_we_need):
         distplot(data[i])
 
 def descr_stat(x):
-    print('Max: {0}\nMin: {1}\nMode: {2}\nMedian: {3}\nMean: {4}\nShapiro-Wilk test: {5}'\
-          .format(np.max(x), np.min(x), mode(x).mode, np.median(x), np.mean(x), shapiro(x)))
+    print('Max: {0}\nMin: {1}\nMode: {2}\nMedian: {3}\nMean: {4}\nShapiro-Wilk test: {5}\nVariance: {6}\nStandart deviation: {7}\nRange of values (max-min): {8}'\
+          .format(np.max(x), np.min(x), mode(x).mode, np.median(x), np.mean(x), shapiro(x), np.var(x), np.std(x), np.ptp(x)))
 
 def distplot(x):
     sns.displot(x)
@@ -118,22 +118,23 @@ class Classifier:
         self.precision = precision_score(self.y_test, self.y_test_predicted)
         self.recall = recall_score(self.y_test, self.y_test_predicted)
         self.f1score = f1_score(self.y_test, self.y_test_predicted)
-        self.rocaucscore = roc_auc_score(self.y_test, self.y_test_predicted)
+        self.fpr, self.tpr, self.thresholds = roc_curve(self.y_test, self.y_test_predicted)
+        self.rocaucscore = auc(self.fpr, self.tpr)
+        
         print(
             'Accuracy_test: {0} \nAccuracy_train: {1} \nPrecision score: {2} \nRecall score: {3} \nF1-score: {4} \nROC-AUC-score: {5}' \
                 .format(self.accuracy_test, self.accuracy_train, self.precision, self.recall, self.f1score, self.rocaucscore))
         ConfusionMatrixDisplay.from_predictions(self.y_test, self.y_test_predicted)
         plt.grid(False)
         plt.show()
-        RocCurveDisplay.from_predictions(self.y_test, self.y_test_predicted)
+        RocCurveDisplay.from_estimator(self.best_model, self.X_test, self.y_test)
         plt.show()
 
     def feature_importances(self):
         importances = list(self.best_model.feature_importances_)
         feature_importances = [(feature, importance) for feature, importance in
                                zip(list(self.X_test.columns), importances)]
-        feature_importances = sorted(feature_importances, key=lambda x: x[1], reverse=True)
-        plt.style.use('fivethirtyeight')
+        feature_importances = sorted(feature_importances, key=lambda x: x[1], reverse=True) 
         x_values = list(range(len(importances)))
         plt.bar(x_values, importances, orientation='vertical')
         plt.xticks(x_values, list(self.X_test.columns), rotation='vertical')
